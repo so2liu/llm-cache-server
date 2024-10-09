@@ -7,9 +7,18 @@ LLM Cache Proxy is a FastAPI-based application that serves as a caching layer fo
 ```bash
 # Run the container
 docker run -p 9999:9999 \
+  -v $(pwd)/data:/app/data \
+  llm-cache-proxy
+```
+
+OR
+
+```bash
+# Run the container
+docker run -p 9999:9999 \
   -e OPENAI_API_KEY=your_api_key_here \
   -e OPENAI_BASE_URL=https://api.openai.com/v1 \
-  -v $(pwd)/data:/data \
+  -v $(pwd)/data:/app/data \
   llm-cache-proxy
 ```
 
@@ -82,11 +91,11 @@ You can set these in a `.env` file in the project root.
     docker run -p 9999:9999 \
       -e OPENAI_API_KEY=your_api_key_here \
       -e OPENAI_BASE_URL=https://api.openai.com/v1 \
-      -v $(pwd)/data:/data \
+      -v $(pwd)/data:/app/data \
       llm-cache-proxy
     ```
 
-    This command mounts a `data` directory from your current working directory to the `/data` directory in the container, ensuring that the cache persists between container restarts.
+    This command mounts a `data` directory from your current working directory to the `/app/data` directory in the container, ensuring that the cache persists between container restarts.
 
 ## API Endpoints
 
