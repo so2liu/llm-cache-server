@@ -1,8 +1,12 @@
 import sqlite3
 from datetime import datetime, timezone
+import os
 
 
 def get_db_connection():
+    # 确保 data 目录存在
+    os.makedirs("data", exist_ok=True)
+
     conn = sqlite3.connect("data/llm_cache.db")
     conn.row_factory = sqlite3.Row
     return conn
