@@ -30,7 +30,11 @@ def cache_response(request_hash: str, prompt: str, response: str, is_stream: boo
     conn = get_db_connection()
     cursor = conn.cursor()
     cursor.execute(
-        "INSERT OR REPLACE INTO cache (hashed_key, key, value, is_stream) VALUES (?, ?, ?, ?)",
+        """
+        INSERT OR REPLACE INTO cache 
+        (hashed_key, key, value, is_stream, timestamp) 
+        VALUES (?, ?, ?, ?, CURRENT_TIMESTAMP)
+        """,
         (request_hash, prompt, response, is_stream),
     )
     conn.commit()
