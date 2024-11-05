@@ -72,11 +72,13 @@ async def process_chat_request(request: Request, use_cache: bool):
 
 
 @app.post("/cache/chat/completions")
+@app.post("/cache/v1/chat/completions")
 async def cache_chat_completion(request: Request):
     return await process_chat_request(request, use_cache=True)
 
 
 @app.post("/chat/completions")
+@app.post("/v1/chat/completions")
 async def chat_completion(request: Request):
     return await process_chat_request(request, use_cache=False)
 
