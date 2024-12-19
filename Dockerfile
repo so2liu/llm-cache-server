@@ -17,7 +17,7 @@ RUN adduser --disabled-password --gecos '' appuser
 RUN mkdir -p /app/data && chown -R appuser:appuser /app/data
 
 # Switch to non-root user
-USER appuser
+# USER appuser
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
@@ -27,5 +27,7 @@ ENV OPENAI_BASE_URL="https://api.openai.com/v1"
 # Make port 9999 available to the world outside this container
 EXPOSE 9999
 
+WORKDIR /app/app
+
 # Run the application
-ENTRYPOINT ["fastapi", "run", "app/main.py"]
+ENTRYPOINT ["fastapi", "run", "main.py"]
