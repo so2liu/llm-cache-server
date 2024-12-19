@@ -28,4 +28,4 @@ ENV OPENAI_BASE_URL="https://api.openai.com/v1"
 EXPOSE 9999
 
 # Run the application
-ENTRYPOINT ["python", "-m", "app.main"]
+ENTRYPOINT ["fastapi", "run", "app/main.py"]
