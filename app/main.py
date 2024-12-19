@@ -68,7 +68,10 @@ async def process_chat_request(request: Request, use_cache: bool):
         if use_cache:
             print("add to cache")
             cache_response(request_hash, json.dumps(body), response.to_json(), False)
-        return ChatCompletionResponse(**response.to_dict())
+        try:
+            return ChatCompletionResponse(**response.to_dict())
+        except Exception as e:
+            return {"error": response.to_dict()}
 
 
 @app.post("/cache/chat/completions")
