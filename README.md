@@ -8,7 +8,7 @@ LLM Cache Proxy is a FastAPI-based application that serves as a caching layer fo
 # Run the container
 docker run -p 9999:9999 \
   -v $(pwd)/data:/app/data \
-  llm-cache-proxy
+  so2liu/llm-cache-proxy
 ```
 
 OR
@@ -19,7 +19,7 @@ docker run -p 9999:9999 \
   -e OPENAI_API_KEY=your_api_key_here \
   -e OPENAI_BASE_URL=https://api.openai.com/v1 \
   -v $(pwd)/data:/app/data \
-  llm-cache-proxy
+  so2liu/llm-cache-proxy
 ```
 
 The proxy is now available at http://localhost:9999
@@ -47,7 +47,7 @@ Use /chat/completions for uncached requests
 1. Clone the repository:
 
     ```
-    git clone https://github.com/yourusername/llm-cache-proxy.git
+    git clone https://github.com/so2liu/llm-cache-proxy.git
     cd llm-cache-proxy
     ```
 
