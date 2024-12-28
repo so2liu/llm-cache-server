@@ -36,10 +36,10 @@ jobs:
                   push: ${{ github.event_name != 'pull_request' }}
                   tags: |
                       ${{ secrets.DOCKERHUB_USERNAME }}/llm-cache-proxy:latest
-                      ${{ secrets.DOCKERHUB_USERNAME }}/llm-cache-proxy:${{ github.sha }}
+                      ${{ secrets.DOCKERHUB_USERNAME }}/llm-cache-proxy:0.0.${{ github.run_number }}
 
             - name: Update deployment status
               if: success() && github.event_name != 'pull_request'
               run: |
-                  echo "Docker image ${{ secrets.DOCKERHUB_USERNAME }}/llm-cache-proxy:${{ github.sha }} has been built and pushed."
+                  echo "Docker image ${{ secrets.DOCKERHUB_USERNAME }}/llm-cache-proxy:0.0.${{ github.run_number }} has been built and pushed."
                   echo "You can now update your deployment to use this new image."
