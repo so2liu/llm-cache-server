@@ -107,7 +107,15 @@ async def proxy_to_openai(request: Request, path: str):
         headers={k: v for k, v in request.headers.items() if k != "host"},
         content=await request.body(),
     )
-    return response.content
+    print(response.headers)
+    if (
+        "application/json" in response.headers["content-type"]
+        or "application/json" in response.headers["Content-Type"]
+    ):
+        res_body = response.json()
+        return res_body
+    else:
+        return response.content
 
 
 if __name__ == "__main__":
