@@ -1,27 +1,29 @@
-import os
 from fastapi import FastAPI, Request
 from fastapi.responses import StreamingResponse
 import json
-import dotenv
 import argparse
 import copy
+import httpx
+
 from .models import ChatCompletionRequest, ChatCompletionResponse
 from .database import init_db
 from .cache import check_cache, cache_response
 from .utils import get_openai_client, get_request_hash, stream_response
-
-dotenv.load_dotenv()
-
-# Print configuration information
-print("Configuration:")
-print(
-    f"OPENAI_API_KEY: {'Set' if os.getenv('OPENAI_API_KEY') else 'Not set (will use request Authorization header)'}"
-)
-print(
-    f"OPENAI_BASE_URL: {os.getenv('OPENAI_BASE_URL', 'Not set (will use default OpenAI URL)')}"
-)
+from fastapi.middleware.cors import CORSMiddleware
+from .env_config import env_config
 
 app = FastAPI()
+
+# Add CORS middleware configuration
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "*"
+    ],  # Allow all sources, you can set specific domains based on your needs
+    allow_credentials=True,
+    allow_methods=["*"],  # Allow all methods
+    allow_headers=["*"],  # Allow all request headers
+)
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--verbose", action="store_true", help="Enable verbose mode")
@@ -30,6 +32,8 @@ args = parser.parse_args()
 
 async def process_chat_request(request: Request, use_cache: bool):
     body = await request.json()
+
+    print(json.dumps(body, indent=2, ensure_ascii=False))
 
     if args.verbose:
         print("Verbose: Message contents")
@@ -84,6 +88,26 @@ async def cache_chat_completion(request: Request):
 @app.post("/v1/chat/completions")
 async def chat_completion(request: Request):
     return await process_chat_request(request, use_cache=False)
+
+
+@app.api_route(
+    "/cache{path:path}",
+    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
+)
+@app.api_route(
+    "{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"]
+)
+async def proxy_to_openai(request: Request, path: str):
+    print("enter proxy", path)
+    client = httpx.AsyncClient(base_url=env_config.OPENAI_BASE_URL)
+    sub_path = path.replace("/cache", "")
+    response = await client.request(
+        method=request.method,
+        url=f"{sub_path}",
+        headers={k: v for k, v in request.headers.items() if k != "host"},
+        content=await request.body(),
+    )
+    return response.content
 
 
 if __name__ == "__main__":

@@ -2,14 +2,12 @@ import unittest
 import requests
 import json
 import os
-from dotenv import load_dotenv
-
-load_dotenv()  # This loads the variables from .env file
+from app.env_config import env_config
 
 
 class TestLLMCacheProxy(unittest.TestCase):
     BASE_URL = "http://localhost:9999"
-    OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+    OPENAI_API_KEY = env_config.OPENAI_API_KEY
 
     def setUp(self):
         self.headers = {
