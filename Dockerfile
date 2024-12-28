@@ -30,4 +30,4 @@ EXPOSE 9999
 WORKDIR /app/app
 
 # Run the application
-ENTRYPOINT ["fastapi", "run", "main.py"]
+ENTRYPOINT ["python", "-m", "app.main"]
