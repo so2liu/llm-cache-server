@@ -1,23 +1,22 @@
-import os
 import openai
 import json
 import hashlib
-from typing import Iterator
 import asyncio
 from .models import ChatCompletionRequest
 from .cache import cache_response
 from openai.types.chat import ChatCompletionChunk
+from .env_config import env_config
 
 
 def get_openai_client(auth_header: str):
     if auth_header and auth_header.startswith("Bearer "):
         token = auth_header.split("Bearer ")[1]
-        api_key = token if len(token) > 10 else os.environ.get("OPENAI_API_KEY")
+        api_key = token if len(token) > 5 else env_config.OPENAI_API_KEY
     else:
-        api_key = os.environ.get("OPENAI_API_KEY")
+        api_key = env_config.OPENAI_API_KEY
 
     return openai.OpenAI(
-        base_url=os.environ.get("OPENAI_BASE_URL", None),
+        base_url=env_config.OPENAI_BASE_URL,
         api_key=api_key,
     )
 

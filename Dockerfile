@@ -4,11 +4,13 @@ FROM python:3.12-slim
 # Set the working directory
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . /app
+COPY requirements.txt .
 
 # Install any needed packages specified in requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy the current directory contents into the container at /app
+COPY . /app
 
 # Create a non-root user
 RUN adduser --disabled-password --gecos '' appuser
@@ -30,4 +32,4 @@ EXPOSE 9999
 WORKDIR /app/app
 
 # Run the application
-ENTRYPOINT ["python", "-m", "app.main"]
+ENTRYPOINT ["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]

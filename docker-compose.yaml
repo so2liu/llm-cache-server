@@ -1,0 +1,10 @@
+version: '3.8'
+
+services:
+    llm-cache-proxy:
+        build:
+            context: .
+        ports:
+            - 9999:9999
+        env_file:
+            - .env

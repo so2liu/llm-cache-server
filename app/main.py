@@ -1,16 +1,16 @@
-from fastapi import FastAPI, Request
+from fastapi import FastAPI, HTTPException, Request
 from fastapi.responses import StreamingResponse
 import json
-import argparse
 import copy
-import httpx
-
 from .models import ChatCompletionRequest, ChatCompletionResponse
 from .database import init_db
 from .cache import check_cache, cache_response
 from .utils import get_openai_client, get_request_hash, stream_response
 from fastapi.middleware.cors import CORSMiddleware
 from .env_config import env_config
+
+# Initialize the database when the application starts
+init_db()
 
 app = FastAPI()
 
@@ -25,17 +25,13 @@ app.add_middleware(
     allow_headers=["*"],  # Allow all request headers
 )
 
-parser = argparse.ArgumentParser()
-parser.add_argument("--verbose", action="store_true", help="Enable verbose mode")
-args = parser.parse_args()
-
 
 async def process_chat_request(request: Request, use_cache: bool):
     body = await request.json()
 
     print(json.dumps(body, indent=2, ensure_ascii=False))
 
-    if args.verbose:
+    if env_config.VERBOSE:
         print("Verbose: Message contents")
         for message in body.get("messages", []):
             print(f"Role: {message.get('role')}")
@@ -81,47 +77,32 @@ async def process_chat_request(request: Request, use_cache: bool):
 @app.post("/cache/chat/completions")
 @app.post("/cache/v1/chat/completions")
 async def cache_chat_completion(request: Request):
-    return await process_chat_request(request, use_cache=True)
+    try:
+        return await process_chat_request(request, use_cache=True)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 @app.post("/chat/completions")
 @app.post("/v1/chat/completions")
 async def chat_completion(request: Request):
-    return await process_chat_request(request, use_cache=False)
+    try:
+        return await process_chat_request(request, use_cache=False)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
-@app.api_route(
-    "/cache{path:path}",
-    methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"],
-)
-@app.api_route(
-    "{path:path}", methods=["GET", "POST", "PUT", "DELETE", "OPTIONS", "HEAD", "PATCH"]
-)
-async def proxy_to_openai(request: Request, path: str):
-    print("enter proxy", path)
-    client = httpx.AsyncClient(base_url=env_config.OPENAI_BASE_URL)
-    sub_path = path.replace("/cache", "")
-    response = await client.request(
-        method=request.method,
-        url=f"{sub_path}",
-        headers={k: v for k, v in request.headers.items() if k != "host"},
-        content=await request.body(),
-    )
-    print(response.headers)
-    if (
-        "application/json" in response.headers["content-type"]
-        or "application/json" in response.headers["Content-Type"]
-    ):
-        res_body = response.json()
-        return res_body
-    else:
-        return response.content
+@app.get("/cache/models")
+@app.get("/models")
+async def get_models(request: Request):
+    try:
+        client = get_openai_client(request.headers.get("Authorization"))
+        return client.models.list()
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
 
 
 if __name__ == "__main__":
     import uvicorn
-
-    # Initialize the database when the application starts
-    init_db()
 
     uvicorn.run(app, host="0.0.0.0", port=9999)
