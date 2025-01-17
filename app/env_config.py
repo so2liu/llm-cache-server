@@ -7,9 +7,11 @@ dotenv.load_dotenv()
 
 @dataclass
 class EnvConfig:
-    OPENAI_BASE_URL: str = os.getenv("OPENAI_BASE_URL")
-    OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY")
-    VERBOSE: bool = os.getenv("VERBOSE") == "true"
+    OPENAI_BASE_URL: str = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")
+    OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
+    VERBOSE: bool = os.environ.get("VERBOSE") == "true"
+    LOG_MESSAGE: bool = os.environ.get("LOG_MESSAGE") == "true"
+    LOG_REQUEST_BODY: bool = os.environ.get("LOG_REQUEST_BODY") == "true"
 
 
 env_config = EnvConfig()

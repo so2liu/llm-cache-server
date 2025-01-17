@@ -6,18 +6,15 @@ from .models import ChatCompletionRequest
 from .cache import cache_response
 from openai.types.chat import ChatCompletionChunk
 from .env_config import env_config
+import json
 
 
-def get_openai_client(auth_header: str):
-    if auth_header and auth_header.startswith("Bearer "):
-        token = auth_header.split("Bearer ")[1]
-        api_key = token if len(token) > 5 else env_config.OPENAI_API_KEY
-    else:
-        api_key = env_config.OPENAI_API_KEY
+def get_openai_client(authorization: str):
+    api_key = authorization.split(" ")[1] if authorization else None
 
     return openai.OpenAI(
         base_url=env_config.OPENAI_BASE_URL,
-        api_key=api_key,
+        api_key=api_key or env_config.OPENAI_API_KEY,
     )
 
 
@@ -43,8 +40,10 @@ async def stream_response(
     client: openai.OpenAI,
     chat_request: ChatCompletionRequest,
     use_cache: bool,
-    request_hash: str | None = None,
+    request_hash: str,
+    first_token_timer=None,
 ):
+    first_chunk = True
     response_chunks = []
     response = client.chat.completions.create(
         **chat_request.model_dump(exclude={"stream"}),
@@ -52,6 +51,11 @@ async def stream_response(
     )
 
     for chunk in response:
+        if first_chunk and first_token_timer:
+            first_token_timer.__exit__(None, None, None)
+            first_chunk = False
+
+        # use dict to avoid json serialization \n
         chunk_dict = chunk.to_dict()
         if use_cache:
             response_chunks.append(chunk)
