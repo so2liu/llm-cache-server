@@ -1,26 +1,49 @@
 from opentelemetry import trace
 from opentelemetry.sdk.trace import TracerProvider
-from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
+from opentelemetry.sdk.trace.export import BatchSpanProcessor
 from opentelemetry.sdk.resources import Resource
 from opentelemetry.semconv.resource import ResourceAttributes
 from opentelemetry.instrumentation.fastapi import FastAPIInstrumentor
+from opentelemetry.exporter.otlp.proto.http.trace_exporter import OTLPSpanExporter
 from fastapi import FastAPI
 import time
-
-# 初始化 tracer provider
-resource = Resource.create({ResourceAttributes.SERVICE_NAME: "llm-cache-server"})
-
-tracer_provider = TracerProvider(resource=resource)
-tracer_provider.add_span_processor(BatchSpanProcessor(ConsoleSpanExporter()))
-trace.set_tracer_provider(tracer_provider)
-
-# 获取 tracer
-tracer = trace.get_tracer(__name__)
+import os
+from .env_config import env_config
 
 
 def init_telemetry(app: FastAPI):
     """初始化 FastAPI 的 OpenTelemetry instrumentation"""
+
+    # 创建 New Relic OTLP HTTP 导出器
+    otlp_exporter = OTLPSpanExporter(
+        endpoint="https://otlp.nr-data.net:4318/v1/traces",
+        headers={
+            "api-key": os.environ.get("NEW_RELIC_LICENSE_KEY", ""),
+        },
+    )
+
+    # 初始化 tracer provider
+    resource = Resource.create(
+        {
+            ResourceAttributes.SERVICE_NAME: "llm-cache-server",
+            "env": os.environ.get("ENV", "development"),
+        }
+    )
+
+    tracer_provider = TracerProvider(resource=resource)
+
+    # 使用批处理 span processor
+    tracer_provider.add_span_processor(BatchSpanProcessor(otlp_exporter))
+
+    # 设置全局 tracer provider
+    trace.set_tracer_provider(tracer_provider)
+
+    # 初始化 FastAPI instrumentation
     FastAPIInstrumentor.instrument_app(app)
+
+
+# 获取 tracer
+tracer = trace.get_tracer(__name__)
 
 
 class Timer:
