@@ -1,10 +1,11 @@
 from typing import Optional, Union
 from pydantic import BaseModel
+from openai.types.chat import ChatCompletionMessageParam
 
 
 class ChatCompletionRequest(BaseModel):
     model: str
-    messages: list
+    messages: list[ChatCompletionMessageParam]
     temperature: float = 0
     stream: bool = False
     tool_choice: Optional[Union[str, dict]] = None

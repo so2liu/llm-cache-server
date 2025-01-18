@@ -68,23 +68,33 @@ async def process_chat_request(
 
         first_token_timer = Timer()
         if chat_request.stream:
-            with first_token_timer:
-                stream_gen = stream_response(
-                    client,
-                    chat_request,
-                    use_cache,
-                    request_hash if use_cache else "",
-                    first_token_timer,
-                )
+            stream_gen = stream_response(
+                client,
+                chat_request,
+                use_cache,
+                request_hash if use_cache else "",
+            )
             return StreamingResponse(
                 stream_gen,
                 media_type="text/event-stream",
             )
         else:
-            with first_token_timer:
-                response = client.chat.completions.create(**chat_request.model_dump())
-
-            span.set_attribute("first_token_latency_ms", first_token_timer.duration)
+            with tracer.start_span("non_stream_response") as span:
+                span.set_attributes(
+                    {
+                        "model": chat_request.model,
+                        "base_url": str(client.base_url),
+                        "last_message": str(
+                            chat_request.messages[-1].get("content", "")
+                        ),
+                        "messages_count": len(chat_request.messages),
+                    }
+                )
+                with first_token_timer:
+                    response = client.chat.completions.create(
+                        **chat_request.model_dump()
+                    )
+                span.set_attribute("duration_ms", first_token_timer.duration)
 
             if use_cache:
                 print("add to cache")

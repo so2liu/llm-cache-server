@@ -12,6 +12,8 @@ class EnvConfig:
     VERBOSE: bool = os.environ.get("VERBOSE") == "true"
     LOG_MESSAGE: bool = os.environ.get("LOG_MESSAGE") == "true"
     LOG_REQUEST_BODY: bool = os.environ.get("LOG_REQUEST_BODY") == "true"
+    NEW_RELIC_LICENSE_KEY: str = os.environ.get("NEW_RELIC_LICENSE_KEY", "")
+    ENV: str = os.environ.get("ENV", "development")
 
 
 env_config = EnvConfig()
