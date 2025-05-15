@@ -70,7 +70,7 @@ async def process_chat_request(
             media_type="text/event-stream",
         )
     else:
-        response = client.chat.completions.create(**chat_request.model_dump())
+        response = await client.chat.completions.create(**chat_request.model_dump())
 
         if use_cache:
             print("add to cache")
@@ -111,7 +111,7 @@ async def chat_completion(request: Request, authorization: Annotated[str, Header
 async def get_models(request: Request, authorization: Annotated[str, Header()]):
     try:
         client = get_openai_client(authorization)
-        return client.models.list()
+        return await client.models.list()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

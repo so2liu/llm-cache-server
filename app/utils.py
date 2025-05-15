@@ -12,7 +12,7 @@ import json
 def get_openai_client(authorization: str):
     api_key = authorization.split(" ")[1] if authorization else None
 
-    return openai.OpenAI(
+    return openai.AsyncOpenAI(
         base_url=env_config.OPENAI_BASE_URL,
         api_key=api_key or env_config.OPENAI_API_KEY,
     )
@@ -37,19 +37,19 @@ def merge_chunks(chunks: list[ChatCompletionChunk]):
 
 
 async def stream_response(
-    client: openai.OpenAI,
+    client: openai.AsyncOpenAI,
     chat_request: ChatCompletionRequest,
     use_cache: bool,
     request_hash: str,
 ):
     first_chunk = True
     response_chunks = []
-    response = client.chat.completions.create(
+    response = await client.chat.completions.create(
         **chat_request.model_dump(exclude={"stream"}),
         stream=True,
     )
 
-    for chunk in response:
+    async for chunk in response:
         if first_chunk:
             first_chunk = False
 
