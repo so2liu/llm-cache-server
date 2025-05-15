@@ -7,7 +7,6 @@ from .cache import cache_response
 from openai.types.chat import ChatCompletionChunk
 from .env_config import env_config
 import json
-from .telemetry import tracer, Timer
 
 
 def get_openai_client(authorization: str):
@@ -44,43 +43,28 @@ async def stream_response(
     request_hash: str,
 ):
     first_chunk = True
-    with tracer.start_span("stream_response") as span:
-        last_message = chat_request.messages[-1].get("content", "")
-        span.set_attributes(
-            {
-                "use_cache": use_cache,
-                "model": chat_request.model,
-                "base_url": str(client.base_url),
-                "last_message": str(last_message),
-                "messages_count": len(chat_request.messages),
-            }
+    response_chunks = []
+    response = client.chat.completions.create(
+        **chat_request.model_dump(exclude={"stream"}),
+        stream=True,
+    )
+
+    for chunk in response:
+        if first_chunk:
+            first_chunk = False
+
+        # use dict to avoid json serialization \n
+        chunk_dict = chunk.to_dict()
+        if use_cache:
+            response_chunks.append(chunk)
+        yield f"data: {json.dumps(chunk_dict)}\n\n"
+        await asyncio.sleep(0.01)
+    yield "data: [DONE]\n\n"
+
+    if use_cache and request_hash is not None:
+        cache_response(
+            request_hash=request_hash,
+            prompt=chat_request.model_dump_json(),
+            response=json.dumps(merge_chunks(response_chunks)),
+            is_stream=True,
         )
-        response_chunks = []
-        timer = Timer()
-        timer.__enter__()
-        response = client.chat.completions.create(
-            **chat_request.model_dump(exclude={"stream"}),
-            stream=True,
-        )
-
-        for chunk in response:
-            if first_chunk:
-                first_chunk = False
-                timer.__exit__(None, None, None)
-                span.set_attribute("first_token_latency_ms", timer.duration)
-
-            # use dict to avoid json serialization \n
-            chunk_dict = chunk.to_dict()
-            if use_cache:
-                response_chunks.append(chunk)
-            yield f"data: {json.dumps(chunk_dict)}\n\n"
-            await asyncio.sleep(0.01)
-        yield "data: [DONE]\n\n"
-
-        if use_cache and request_hash is not None:
-            cache_response(
-                request_hash=request_hash,
-                prompt=chat_request.model_dump_json(),
-                response=json.dumps(merge_chunks(response_chunks)),
-                is_stream=True,
-            )
