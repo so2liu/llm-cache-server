@@ -5,7 +5,7 @@ import copy
 from .models import ChatCompletionRequest, ChatCompletionResponse
 from .database import init_db
 from .cache import check_cache, cache_response
-from .utils import get_openai_client, get_request_hash, stream_response
+from .utils import get_openai_client, get_request_hash, stream_response, ProviderType
 from fastapi.middleware.cors import CORSMiddleware
 from .env_config import env_config
 from typing import Annotated
@@ -27,7 +27,10 @@ app.add_middleware(
 
 
 async def process_chat_request(
-    request: Request, use_cache: bool, authorization: Annotated[str, Header()]
+    request: Request,
+    use_cache: bool,
+    authorization: Annotated[str, Header()],
+    provider: ProviderType = None,
 ):
     body = await request.json()
 
@@ -48,7 +51,7 @@ async def process_chat_request(
         print(json.dumps(body_without_content, indent=2, ensure_ascii=False))
 
     chat_request = ChatCompletionRequest(**body)
-    client = get_openai_client(authorization)
+    client = get_openai_client(authorization, provider)
 
     if use_cache:
         request_hash = get_request_hash(body)
@@ -83,13 +86,17 @@ async def process_chat_request(
 
 
 @app.post("/cache/chat/completions")
+@app.post("/{provider}/cache/chat/completions")
 @app.post("/cache/v1/chat/completions")
+@app.post("/{provider}/cache/v1/chat/completions")
 async def cache_chat_completion(
-    request: Request, authorization: Annotated[str, Header()]
+    request: Request,
+    authorization: Annotated[str, Header()],
+    provider: ProviderType = None,
 ):
     try:
         return await process_chat_request(
-            request, use_cache=True, authorization=authorization
+            request, use_cache=True, authorization=authorization, provider=provider
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -108,9 +115,10 @@ async def chat_completion(request: Request, authorization: Annotated[str, Header
 
 @app.get("/cache/models")
 @app.get("/models")
-async def get_models(request: Request, authorization: Annotated[str, Header()]):
+@app.get("/{provider}/cache/models")
+async def get_models(authorization: Annotated[str, Header()], provider: ProviderType):
     try:
-        client = get_openai_client(authorization)
+        client = get_openai_client(authorization, provider)
         return await client.models.list()
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

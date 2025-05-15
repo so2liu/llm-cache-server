@@ -1,3 +1,4 @@
+from typing import Literal
 import openai
 import json
 import hashlib
@@ -8,14 +9,23 @@ from openai.types.chat import ChatCompletionChunk
 from .env_config import env_config
 import json
 
+ProviderType = Literal["openrouter", "aliyun", "deepseek"] | None
 
-def get_openai_client(authorization: str):
-    api_key = authorization.split(" ")[1] if authorization else None
 
-    return openai.AsyncOpenAI(
-        base_url=env_config.OPENAI_BASE_URL,
-        api_key=api_key or env_config.OPENAI_API_KEY,
+def get_openai_client(authorization: str, provider: ProviderType):
+    provider_base_url = {
+        "openrouter": "https://openrouter.ai/api/v1",
+        "aliyun": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+        "deepseek": "https://api.deepseek.com/v1",
+    }
+
+    api_key = (
+        authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
     )
+
+    base_url = provider_base_url[provider] if provider else env_config.OPENAI_BASE_URL
+
+    return openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
 
 
 def get_request_hash(body: dict) -> str:
