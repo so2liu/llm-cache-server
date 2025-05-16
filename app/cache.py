@@ -51,8 +51,6 @@ async def stream_cache_response(cached_chunks: list):
                 del new_chunk["choices"][0]["delta_list"]
                 new_chunk["choices"][0]["delta"] = delta
                 yield f"data: {json.dumps(new_chunk)}\n\n"
-                await asyncio.sleep(0.01)
         except KeyError:
             yield f"data: {json.dumps(chunk)}\n\n"
-            await asyncio.sleep(0.01)
     yield "data: [DONE]\n\n"

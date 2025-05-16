@@ -33,6 +33,7 @@ def get_request_hash(body: dict) -> str:
 
 
 def merge_chunks(chunks: list[ChatCompletionChunk]):
+    chunk = chunks[0]
     first_chunk = chunks[0].to_dict()
     first_chunk["choices"][0]["delta_list"] = [first_chunk["choices"][0]["delta"]]
     merged_chunks = [first_chunk]
@@ -54,10 +55,13 @@ async def stream_response(
 ):
     first_chunk = True
     response_chunks = []
-    response = await client.chat.completions.create(
-        **chat_request.model_dump(exclude={"stream"}),
-        stream=True,
-    )
+    try:
+        response = await client.chat.completions.create(
+            **chat_request.model_dump(exclude={"stream"}),
+            stream=True,
+        )
+    except Exception as e:
+        raise e
 
     async for chunk in response:
         if first_chunk:
@@ -68,7 +72,6 @@ async def stream_response(
         if use_cache:
             response_chunks.append(chunk)
         yield f"data: {json.dumps(chunk_dict)}\n\n"
-        await asyncio.sleep(0.01)
     yield "data: [DONE]\n\n"
 
     if use_cache and request_hash is not None:
