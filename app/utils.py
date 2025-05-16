@@ -2,14 +2,28 @@ from typing import Literal
 import openai
 import json
 import hashlib
-import asyncio
 from .models import ChatCompletionRequest
 from .cache import cache_response
 from openai.types.chat import ChatCompletionChunk
 from .env_config import env_config
 import json
+import time
+import functools
 
 ProviderType = Literal["openrouter", "aliyun", "deepseek"] | None
+
+
+def timeit(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        print(f"Function {func.__name__} took {execution_time:.4f} seconds")
+        return result
+
+    return wrapper
 
 
 def get_openai_client(authorization: str, provider: ProviderType):
@@ -28,10 +42,12 @@ def get_openai_client(authorization: str, provider: ProviderType):
     return openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
 
 
+@timeit
 def get_request_hash(body: dict) -> str:
     return hashlib.sha256(json.dumps(body, sort_keys=True).encode()).hexdigest()
 
 
+@timeit
 def merge_chunks(chunks: list[ChatCompletionChunk]):
     chunk = chunks[0]
     first_chunk = chunks[0].to_dict()

@@ -2,10 +2,25 @@ import json
 from .database import get_db_connection
 from .models import ChatCompletionResponse
 from fastapi.responses import StreamingResponse
-import asyncio
 import copy
+import functools
+import time
 
 
+def timeit(func):
+    @functools.wraps(func)
+    def wrapper(*args, **kwargs):
+        start_time = time.perf_counter()
+        result = func(*args, **kwargs)
+        end_time = time.perf_counter()
+        execution_time = end_time - start_time
+        print(f"Function {func.__name__} took {execution_time:.4f} seconds")
+        return result
+
+    return wrapper
+
+
+@timeit
 def check_cache(request_hash: str):
     conn = get_db_connection()
     cursor = conn.cursor()
@@ -27,6 +42,7 @@ def check_cache(request_hash: str):
     return None
 
 
+@timeit
 def cache_response(request_hash: str, prompt: str, response: str, is_stream: bool):
     conn = get_db_connection()
     cursor = conn.cursor()
