@@ -103,11 +103,17 @@ async def cache_chat_completion(
 
 
 @app.post("/chat/completions")
+@app.post("/{provider}/chat/completions")
 @app.post("/v1/chat/completions")
-async def chat_completion(request: Request, authorization: Annotated[str, Header()]):
+@app.post("/{provider}/v1/chat/completions")
+async def chat_completion(
+    request: Request,
+    authorization: Annotated[str, Header()],
+    provider: ProviderType = None,
+):
     try:
         return await process_chat_request(
-            request, use_cache=False, authorization=authorization
+            request, use_cache=False, authorization=authorization, provider=provider
         )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
