@@ -1,15 +1,16 @@
-from fastapi import FastAPI, HTTPException, Request
-from fastapi.responses import StreamingResponse
-import json
 import copy
-from .models import ChatCompletionRequest, ChatCompletionResponse
-from .database import init_db
-from .cache import check_cache, cache_response
-from .utils import get_openai_client, get_request_hash, stream_response, ProviderType
-from fastapi.middleware.cors import CORSMiddleware
-from .env_config import env_config
+import json
 from typing import Annotated
-from fastapi import Header
+
+from fastapi import FastAPI, Header, HTTPException, Request
+from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import StreamingResponse
+
+from .cache import cache_response, check_cache
+from .database import init_db
+from .env_config import env_config
+from .models import ChatCompletionRequest, ChatCompletionResponse
+from .utils import ProviderType, get_openai_client, get_request_hash, stream_response
 
 # Initialize the database when the application starts
 init_db()
@@ -73,7 +74,7 @@ async def process_chat_request(
             media_type="text/event-stream",
         )
     else:
-        response = await client.chat.completions.create(**chat_request.model_dump())
+        response = await client.chat.completions.create(**chat_request.model_dump(exclude_none=True))
 
         if use_cache:
             print("add to cache")
@@ -81,7 +82,7 @@ async def process_chat_request(
 
         try:
             return ChatCompletionResponse(**response.to_dict())
-        except Exception as e:
+        except Exception:
             return {"error": response.to_dict()}
 
 
@@ -95,9 +96,7 @@ async def cache_chat_completion(
     provider: ProviderType = None,
 ):
     try:
-        return await process_chat_request(
-            request, use_cache=True, authorization=authorization, provider=provider
-        )
+        return await process_chat_request(request, use_cache=True, authorization=authorization, provider=provider)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -112,9 +111,7 @@ async def chat_completion(
     provider: ProviderType = None,
 ):
     try:
-        return await process_chat_request(
-            request, use_cache=False, authorization=authorization, provider=provider
-        )
+        return await process_chat_request(request, use_cache=False, authorization=authorization, provider=provider)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

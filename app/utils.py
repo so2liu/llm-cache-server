@@ -70,7 +70,7 @@ async def stream_response(
     response_chunks = []
     try:
         response = await client.chat.completions.create(
-            **chat_request.model_dump(exclude={"stream"}),
+            **chat_request.model_dump(exclude={"stream"}, exclude_none=True),
             stream=True,
         )
     except Exception as e:
