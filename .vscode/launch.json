@@ -1,10 +1,11 @@
 {
     "configurations": [
         {
-            "name": "Python Debugger: Module",
+            "name": "LLM Cache Server",
             "type": "debugpy",
             "request": "launch",
-            "module": "app.main"
+            "module": "app.main",
+            "python": "${workspaceFolder}/.venv/bin/python",
         }
     ]
 }

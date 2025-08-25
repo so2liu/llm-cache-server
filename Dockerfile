@@ -1,16 +1,29 @@
 # Use the official Python runtime as a parent image
 FROM python:3.12-slim
 
+# Install uv
+RUN apt-get update && apt-get install -y curl && \
+    curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Add uv to PATH
+ENV PATH="/root/.local/bin:$PATH"
+
 # Set the working directory
 WORKDIR /app
 
-COPY requirements.txt .
+# Copy dependency files first for better caching
+COPY pyproject.toml uv.lock ./
 
-# Install any needed packages specified in requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+# Install dependencies using uv
+# This layer will be cached unless pyproject.toml or uv.lock changes
+RUN uv sync --frozen --no-install-project
 
-# Copy the current directory contents into the container at /app
+# Copy the rest of the application
 COPY . /app
+
+# Install the project itself
+RUN uv sync --frozen
 
 # Create a non-root user
 RUN adduser --disabled-password --gecos '' appuser
@@ -31,5 +44,5 @@ EXPOSE 9999
 
 WORKDIR /app/app
 
-# Run the application
-ENTRYPOINT ["fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]
+# Run the application using uv
+ENTRYPOINT ["uv", "run", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]
