@@ -11,7 +11,7 @@ from .cache import cache_response
 from .env_config import env_config
 from .models import ChatCompletionRequest
 
-ProviderType = Literal["openrouter", "aliyun", "deepseek"] | None
+ProviderType = Literal["openrouter", "aliyun", "deepseek", "bigmodel"] | None
 
 
 def timeit(func):
