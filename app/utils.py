@@ -1,14 +1,15 @@
-from typing import Literal
-import openai
-import json
+import functools
 import hashlib
-from .models import ChatCompletionRequest
-from .cache import cache_response
-from openai.types.chat import ChatCompletionChunk
-from .env_config import env_config
 import json
 import time
-import functools
+from typing import Literal
+
+import openai
+from openai.types.chat import ChatCompletionChunk
+
+from .cache import cache_response
+from .env_config import env_config
+from .models import ChatCompletionRequest
 
 ProviderType = Literal["openrouter", "aliyun", "deepseek"] | None
 
@@ -31,11 +32,10 @@ def get_openai_client(authorization: str, provider: ProviderType):
         "openrouter": "https://openrouter.ai/api/v1",
         "aliyun": "https://dashscope.aliyuncs.com/compatible-mode/v1",
         "deepseek": "https://api.deepseek.com/v1",
+        "bigmodel": "https://open.bigmodel.cn/api/paas/v4",
     }
 
-    api_key = (
-        authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
-    )
+    api_key = authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
 
     base_url = provider_base_url[provider] if provider else env_config.OPENAI_BASE_URL
 
@@ -49,15 +49,12 @@ def get_request_hash(body: dict) -> str:
 
 @timeit
 def merge_chunks(chunks: list[ChatCompletionChunk]):
-    chunk = chunks[0]
     first_chunk = chunks[0].to_dict()
     first_chunk["choices"][0]["delta_list"] = [first_chunk["choices"][0]["delta"]]
     merged_chunks = [first_chunk]
     for chunk in chunks[1:]:
         if not chunk.usage and not chunk.choices[0].finish_reason:
-            merged_chunks[-1]["choices"][0]["delta_list"].append(
-                chunk.choices[0].delta.to_dict()
-            )
+            merged_chunks[-1]["choices"][0]["delta_list"].append(chunk.choices[0].delta.to_dict())
         else:
             merged_chunks.append(chunk.to_dict())
     return merged_chunks
