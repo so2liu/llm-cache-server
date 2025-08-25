@@ -10,7 +10,11 @@ from .cache import cache_response, check_cache
 from .database import init_db
 from .env_config import env_config
 from .models import ChatCompletionRequest, ChatCompletionResponse
+from .telemetry.sentry_settings import init_sentry
 from .utils import ProviderType, get_openai_client, get_request_hash, stream_response
+
+# Initialize Sentry
+init_sentry()
 
 # Initialize the database when the application starts
 init_db()

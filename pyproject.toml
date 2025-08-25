@@ -15,4 +15,5 @@ dependencies = [
     "pydantic==2.6.4",
     "python-dotenv==1.0.0",
     "uvicorn==0.29.0",
+    "sentry-sdk[fastapi]>=2.0.0",
 ]
