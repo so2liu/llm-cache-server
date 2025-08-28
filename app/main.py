@@ -5,6 +5,7 @@ from typing import Annotated
 from fastapi import FastAPI, Header, HTTPException, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse
+from rich import print
 
 from .cache import cache_response, check_cache
 from .database import init_db
@@ -36,6 +37,7 @@ async def process_chat_request(
     use_cache: bool,
     authorization: Annotated[str, Header()],
     provider: ProviderType = None,
+    simulate: bool = False,
 ):
     body = await request.json()
 
@@ -60,7 +62,7 @@ async def process_chat_request(
 
     if use_cache:
         request_hash = get_request_hash(body)
-        cached_response = check_cache(request_hash)
+        cached_response = check_cache(request_hash, simulate)
 
         if cached_response:
             print("hit cache")
@@ -72,6 +74,7 @@ async def process_chat_request(
             chat_request,
             use_cache,
             request_hash if use_cache else "",
+            simulate,
         )
         return StreamingResponse(
             stream_gen,
@@ -94,13 +97,20 @@ async def process_chat_request(
 @app.post("/{provider}/cache/chat/completions")
 @app.post("/cache/v1/chat/completions")
 @app.post("/{provider}/cache/v1/chat/completions")
+@app.post("/simulate/cache/chat/completions")
+@app.post("/simulate/{provider}/cache/chat/completions")
+@app.post("/simulate/cache/v1/chat/completions")
+@app.post("/simulate/{provider}/cache/v1/chat/completions")
 async def cache_chat_completion(
     request: Request,
     authorization: Annotated[str, Header()],
     provider: ProviderType = None,
 ):
+    simulate = request.url.path.startswith("/simulate/")
     try:
-        return await process_chat_request(request, use_cache=True, authorization=authorization, provider=provider)
+        return await process_chat_request(
+            request, use_cache=True, authorization=authorization, provider=provider, simulate=simulate
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -109,13 +119,20 @@ async def cache_chat_completion(
 @app.post("/{provider}/chat/completions")
 @app.post("/v1/chat/completions")
 @app.post("/{provider}/v1/chat/completions")
+@app.post("/simulate/chat/completions")
+@app.post("/simulate/{provider}/chat/completions")
+@app.post("/simulate/v1/chat/completions")
+@app.post("/simulate/{provider}/v1/chat/completions")
 async def chat_completion(
     request: Request,
     authorization: Annotated[str, Header()],
     provider: ProviderType = None,
 ):
+    simulate = request.url.path.startswith("/simulate/")
     try:
-        return await process_chat_request(request, use_cache=False, authorization=authorization, provider=provider)
+        return await process_chat_request(
+            request, use_cache=False, authorization=authorization, provider=provider, simulate=simulate
+        )
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

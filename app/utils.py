@@ -1,3 +1,4 @@
+import asyncio
 import functools
 import hashlib
 import json
@@ -65,15 +66,15 @@ async def stream_response(
     chat_request: ChatCompletionRequest,
     use_cache: bool,
     request_hash: str,
+    simulate: bool = False,
 ):
     first_chunk = True
     response_chunks = []
+    body = chat_request.model_dump(exclude={"stream"}, exclude_none=True)
     try:
-        response = await client.chat.completions.create(
-            **chat_request.model_dump(exclude={"stream"}, exclude_none=True),
-            stream=True,
-        )
+        response = await client.chat.completions.create(**body, stream=True)
     except Exception as e:
+        print(body)
         raise e
 
     async for chunk in response:
@@ -85,6 +86,8 @@ async def stream_response(
         if use_cache:
             response_chunks.append(chunk)
         yield f"data: {json.dumps(chunk_dict)}\n\n"
+        if simulate and use_cache:
+            await asyncio.sleep(0.05)
     yield "data: [DONE]\n\n"
 
     if use_cache and request_hash is not None:

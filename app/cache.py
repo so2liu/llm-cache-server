@@ -1,10 +1,13 @@
-import json
-from .database import get_db_connection
-from .models import ChatCompletionResponse
-from fastapi.responses import StreamingResponse
+import asyncio
 import copy
 import functools
+import json
 import time
+
+from fastapi.responses import StreamingResponse
+
+from .database import get_db_connection
+from .models import ChatCompletionResponse
 
 
 def timeit(func):
@@ -21,12 +24,10 @@ def timeit(func):
 
 
 @timeit
-def check_cache(request_hash: str):
+def check_cache(request_hash: str, simulate: bool = False):
     conn = get_db_connection()
     cursor = conn.cursor()
-    cursor.execute(
-        "SELECT value, is_stream FROM cache WHERE hashed_key = ?", (request_hash,)
-    )
+    cursor.execute("SELECT value, is_stream FROM cache WHERE hashed_key = ?", (request_hash,))
     result = cursor.fetchone()
     conn.close()
     if result:
@@ -34,7 +35,7 @@ def check_cache(request_hash: str):
         is_stream = bool(is_stream)
         if is_stream:
             return StreamingResponse(
-                stream_cache_response(json.loads(cached_response)),
+                stream_cache_response(json.loads(cached_response), simulate),
                 media_type="text/event-stream",
             )
         else:
@@ -58,7 +59,7 @@ def cache_response(request_hash: str, prompt: str, response: str, is_stream: boo
     conn.close()
 
 
-async def stream_cache_response(cached_chunks: list):
+async def stream_cache_response(cached_chunks: list, simulate: bool = False):
     first_chunk = cached_chunks[0]
     for chunk in cached_chunks:
         try:
@@ -67,6 +68,10 @@ async def stream_cache_response(cached_chunks: list):
                 del new_chunk["choices"][0]["delta_list"]
                 new_chunk["choices"][0]["delta"] = delta
                 yield f"data: {json.dumps(new_chunk)}\n\n"
+                if simulate:
+                    await asyncio.sleep(0.05)
         except KeyError:
             yield f"data: {json.dumps(chunk)}\n\n"
+            if simulate:
+                await asyncio.sleep(0.05)
     yield "data: [DONE]\n\n"
