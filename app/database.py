@@ -16,6 +16,7 @@ def init_db():
     conn = get_db_connection()
     cursor = conn.cursor()
 
+    # Create cache table
     cursor.execute(
         """
         CREATE TABLE IF NOT EXISTS cache (
@@ -28,7 +29,18 @@ def init_db():
     """
     )
 
-    # migration
+    # Create token_provider_cache table
+    cursor.execute(
+        """
+        CREATE TABLE IF NOT EXISTS token_provider_cache (
+            token_hash TEXT PRIMARY KEY,
+            base_url TEXT NOT NULL,
+            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    """
+    )
+
+    # migration for cache table
     cursor.execute("PRAGMA table_info(cache)")
     columns = [column[1] for column in cursor.fetchall()]
 
