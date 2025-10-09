@@ -12,7 +12,7 @@ from .database import init_db
 from .env_config import env_config
 from .models import ChatCompletionRequest, ChatCompletionResponse
 from .telemetry.sentry_settings import init_sentry
-from .utils import ProviderType, get_openai_client, get_request_hash, stream_response
+from .utils import ProviderType, detect_provider, get_openai_client, get_request_hash, stream_response
 
 # Initialize Sentry
 init_sentry()
@@ -58,6 +58,12 @@ async def process_chat_request(
         print(json.dumps(body_without_content, indent=2, ensure_ascii=False))
 
     chat_request = ChatCompletionRequest(**body)
+
+    # Auto-detect provider if not specified
+    if provider is None:
+        api_key = authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
+        provider = await detect_provider(api_key)
+
     client = get_openai_client(authorization, provider)
 
     if use_cache:

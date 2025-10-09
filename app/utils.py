@@ -7,12 +7,30 @@ from typing import Literal
 
 import openai
 from openai.types.chat import ChatCompletionChunk
+from rich import print
 
 from .cache import cache_response
 from .env_config import env_config
 from .models import ChatCompletionRequest
 
 ProviderType = Literal["openrouter", "aliyun", "deepseek", "bigmodel"] | None
+
+PROVIDER_BASE_URLS = {
+    "openrouter": "https://openrouter.ai/api/v1",
+    "aliyun": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "deepseek": "https://api.deepseek.com/v1",
+    "bigmodel": "https://open.bigmodel.cn/api/paas/v4",
+}
+
+PROVIDER_TEST_ORDER: list[ProviderType] = ["openrouter", "aliyun", "deepseek", "bigmodel"]
+
+# Test models for each provider (lightweight models to minimize cost/latency)
+PROVIDER_TEST_MODELS = {
+    "openrouter": "gpt-3.5-turbo",
+    "aliyun": "qwen-turbo",
+    "deepseek": "deepseek-chat",
+    "bigmodel": "glm-4-flash",
+}
 
 
 def timeit(func):
@@ -29,18 +47,66 @@ def timeit(func):
 
 
 def get_openai_client(authorization: str, provider: ProviderType):
-    provider_base_url = {
-        "openrouter": "https://openrouter.ai/api/v1",
-        "aliyun": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-        "deepseek": "https://api.deepseek.com/v1",
-        "bigmodel": "https://open.bigmodel.cn/api/paas/v4",
-    }
-
     api_key = authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
 
-    base_url = provider_base_url[provider] if provider else env_config.OPENAI_BASE_URL
+    base_url = PROVIDER_BASE_URLS[provider] if provider else env_config.OPENAI_BASE_URL
 
     return openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
+
+
+async def detect_provider(api_key: str) -> ProviderType:
+    """
+    Detect which provider an API key belongs to by testing /models endpoint concurrently.
+
+    Args:
+        api_key: The API key to test
+
+    Returns:
+        The detected provider name, or None (OpenAI) if all tests fail
+    """
+    from .provider_registry import cache_provider, get_cached_provider
+
+    # Check cache first
+    cached = get_cached_provider(api_key)
+    if cached is not None:
+        print(f"Using cached provider: {cached if cached else 'OpenAI'}")
+        return cached
+
+    async def test_provider(provider: ProviderType) -> tuple[ProviderType, bool]:
+        """Test a single provider's API key with a minimal completion request."""
+        if provider is None:
+            raise ValueError("Provider cannot be None in test_provider")
+        try:
+            base_url = PROVIDER_BASE_URLS[provider]
+            test_model = PROVIDER_TEST_MODELS[provider]
+            client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=5.0)
+
+            # Make a minimal test request with provider-specific model to properly validate auth
+            await client.chat.completions.create(
+                model=test_model,
+                messages=[{"role": "user", "content": "hi"}],
+                max_tokens=1,
+            )
+            return provider, True
+        except Exception:
+            return provider, False
+
+    # Test all providers concurrently
+    tasks = [test_provider(provider) for provider in PROVIDER_TEST_ORDER]
+    results = await asyncio.gather(*tasks, return_exceptions=False)
+
+    # Find first successful provider (maintaining priority order)
+    for provider in PROVIDER_TEST_ORDER:
+        for result_provider, success in results:
+            if result_provider == provider and success:
+                print(f"Detected provider: {provider}")
+                cache_provider(api_key, provider)
+                return provider
+
+    # Default to None (OpenAI) if all providers fail
+    print("No provider detected, defaulting to OpenAI")
+    cache_provider(api_key, None)
+    return None
 
 
 @timeit
