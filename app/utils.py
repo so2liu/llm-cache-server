@@ -13,16 +13,28 @@ from .cache import cache_response
 from .env_config import env_config
 from .models import ChatCompletionRequest
 
-ProviderType = Literal["openrouter", "aliyun", "deepseek", "bigmodel"] | None
+ProviderType = Literal["openrouter", "aliyun", "deepseek", "bigmodel"] | str | None
 
-PROVIDER_BASE_URLS = {
-    "openrouter": "https://openrouter.ai/api/v1",
-    "aliyun": "https://dashscope.aliyuncs.com/compatible-mode/v1",
-    "deepseek": "https://api.deepseek.com/v1",
-    "bigmodel": "https://open.bigmodel.cn/api/paas/v4",
-}
+# Built-in provider base URLs
+BUILTIN_BASE_URLS = [
+    "https://openrouter.ai/api/v1",
+    "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "https://api.deepseek.com/v1",
+    "https://open.bigmodel.cn/api/paas/v4",
+]
 
-PROVIDER_TEST_ORDER: list[ProviderType] = ["openrouter", "aliyun", "deepseek", "bigmodel"]
+
+def get_all_base_urls() -> list[str]:
+    """Get all base URLs (additional from env + built-in)"""
+    from .env_config import env_config
+
+    additional = env_config.get_additional_base_urls()
+
+    if additional:
+        print(f"Loaded {len(additional)} additional base URL(s): {additional}")
+
+    # Additional URLs first, then built-in ones
+    return additional + BUILTIN_BASE_URLS
 
 
 def timeit(func):
@@ -41,39 +53,39 @@ def timeit(func):
 def get_openai_client(authorization: str, provider: ProviderType):
     api_key = authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
 
-    base_url = PROVIDER_BASE_URLS[provider] if provider else env_config.OPENAI_BASE_URL
+    # provider is now the base URL string directly
+    base_url = provider if provider else env_config.OPENAI_BASE_URL
 
     return openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
 
 
 async def detect_provider(api_key: str, model: str) -> ProviderType:
     """
-    Detect which provider an API key belongs to by testing with the user's requested model.
+    Detect which base URL an API key belongs to by testing with the user's requested model.
 
     Args:
         api_key: The API key to test
         model: The model name from the user's request
 
     Returns:
-        The detected provider name, or None (OpenAI) if all tests fail
+        The detected base URL string, or None if all tests fail
 
     Raises:
-        ValueError: If all providers fail with details about accepted base URLs
+        ValueError: If all base URLs fail with details about accepted base URLs
     """
     from .provider_registry import cache_provider, get_cached_provider
 
     # Check cache first
     cached = get_cached_provider(api_key)
     if cached is not None:
-        print(f"Using cached provider: {cached if cached else 'OpenAI'}")
+        print(f"Using cached base URL: {cached if cached else 'OpenAI'}")
         return cached
 
-    async def test_provider(provider: ProviderType) -> tuple[ProviderType, bool, str]:
-        """Test a single provider's API key with the user's requested model."""
-        if provider is None:
-            raise ValueError("Provider cannot be None in test_provider")
+    all_base_urls = get_all_base_urls()
+
+    async def test_base_url(base_url: str) -> tuple[str, bool, str]:
+        """Test a single base URL with the user's requested model."""
         try:
-            base_url = PROVIDER_BASE_URLS[provider]
             client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=5.0)
 
             # Test with the user's requested model and a simple test message
@@ -82,26 +94,26 @@ async def detect_provider(api_key: str, model: str) -> ProviderType:
                 messages=[{"role": "user", "content": "hi"}],
                 max_tokens=1,
             )
-            return provider, True, ""
+            return base_url, True, ""
         except Exception as e:
-            return provider, False, str(e)
+            return base_url, False, str(e)
 
-    # Test all providers concurrently
-    tasks = [test_provider(provider) for provider in PROVIDER_TEST_ORDER]
+    # Test all base URLs concurrently
+    tasks = [test_base_url(base_url) for base_url in all_base_urls]
     results = await asyncio.gather(*tasks, return_exceptions=False)
 
-    # Find first successful provider (maintaining priority order)
-    for provider in PROVIDER_TEST_ORDER:
-        for result_provider, success, _ in results:
-            if result_provider == provider and success:
-                print(f"Detected provider: {provider}")
-                cache_provider(api_key, provider)
-                return provider
+    # Find first successful base URL (maintaining priority order)
+    for base_url in all_base_urls:
+        for result_base_url, success, _ in results:
+            if result_base_url == base_url and success:
+                print(f"Detected base URL: {base_url}")
+                cache_provider(api_key, base_url)
+                return base_url
 
-    # If all providers failed, raise an error with accepted base URLs
-    accepted_urls = "\n".join([f"  - {name}: {url}" for name, url in PROVIDER_BASE_URLS.items()])
-    error_msg = f"All providers failed. Accepted base URLs:\n{accepted_urls}"
-    print(f"No provider detected: {error_msg}")
+    # If all base URLs failed, raise an error with accepted base URLs
+    accepted_urls = "\n".join([f"  - {url}" for url in all_base_urls])
+    error_msg = f"All base URLs failed. Accepted base URLs:\n{accepted_urls}"
+    print(f"No base URL detected: {error_msg}")
     raise ValueError(error_msg)
 
 

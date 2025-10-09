@@ -9,11 +9,23 @@ dotenv.load_dotenv()
 class EnvConfig:
     OPENAI_BASE_URL: str = os.environ.get("OPENAI_BASE_URL", "https://api.openai.com")
     OPENAI_API_KEY: str = os.environ.get("OPENAI_API_KEY", "")
+    ADDITIONAL_BASE_URLS: str = os.environ.get("ADDITIONAL_BASE_URLS", "")
     VERBOSE: bool = os.environ.get("VERBOSE") == "true"
     LOG_MESSAGE: bool = os.environ.get("LOG_MESSAGE") == "true"
     LOG_REQUEST_BODY: bool = os.environ.get("LOG_REQUEST_BODY") == "true"
     NEW_RELIC_LICENSE_KEY: str = os.environ.get("NEW_RELIC_LICENSE_KEY", "")
     ENV: str = os.environ.get("ENV", "development")
+
+    def get_additional_base_urls(self) -> list[str]:
+        """
+        Parse additional base URLs from environment variable.
+        Format: ADDITIONAL_BASE_URLS=url1;url2;url3
+        Example: ADDITIONAL_BASE_URLS=https://api.custom.com/v1;http://localhost:11434/v1
+        """
+        if not self.ADDITIONAL_BASE_URLS:
+            return []
+
+        return [url.strip() for url in self.ADDITIONAL_BASE_URLS.split(";") if url.strip()]
 
 
 env_config = EnvConfig()
