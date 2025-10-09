@@ -24,14 +24,6 @@ PROVIDER_BASE_URLS = {
 
 PROVIDER_TEST_ORDER: list[ProviderType] = ["openrouter", "aliyun", "deepseek", "bigmodel"]
 
-# Test models for each provider (lightweight models to minimize cost/latency)
-PROVIDER_TEST_MODELS = {
-    "openrouter": "gpt-3.5-turbo",
-    "aliyun": "qwen-turbo",
-    "deepseek": "deepseek-chat",
-    "bigmodel": "glm-4-flash",
-}
-
 
 def timeit(func):
     @functools.wraps(func)
@@ -54,15 +46,19 @@ def get_openai_client(authorization: str, provider: ProviderType):
     return openai.AsyncOpenAI(base_url=base_url, api_key=api_key)
 
 
-async def detect_provider(api_key: str) -> ProviderType:
+async def detect_provider(api_key: str, model: str) -> ProviderType:
     """
-    Detect which provider an API key belongs to by testing /models endpoint concurrently.
+    Detect which provider an API key belongs to by testing with the user's requested model.
 
     Args:
         api_key: The API key to test
+        model: The model name from the user's request
 
     Returns:
         The detected provider name, or None (OpenAI) if all tests fail
+
+    Raises:
+        ValueError: If all providers fail with details about accepted base URLs
     """
     from .provider_registry import cache_provider, get_cached_provider
 
@@ -72,24 +68,23 @@ async def detect_provider(api_key: str) -> ProviderType:
         print(f"Using cached provider: {cached if cached else 'OpenAI'}")
         return cached
 
-    async def test_provider(provider: ProviderType) -> tuple[ProviderType, bool]:
-        """Test a single provider's API key with a minimal completion request."""
+    async def test_provider(provider: ProviderType) -> tuple[ProviderType, bool, str]:
+        """Test a single provider's API key with the user's requested model."""
         if provider is None:
             raise ValueError("Provider cannot be None in test_provider")
         try:
             base_url = PROVIDER_BASE_URLS[provider]
-            test_model = PROVIDER_TEST_MODELS[provider]
             client = openai.AsyncOpenAI(base_url=base_url, api_key=api_key, timeout=5.0)
 
-            # Make a minimal test request with provider-specific model to properly validate auth
+            # Test with the user's requested model and a simple test message
             await client.chat.completions.create(
-                model=test_model,
+                model=model,
                 messages=[{"role": "user", "content": "hi"}],
                 max_tokens=1,
             )
-            return provider, True
-        except Exception:
-            return provider, False
+            return provider, True, ""
+        except Exception as e:
+            return provider, False, str(e)
 
     # Test all providers concurrently
     tasks = [test_provider(provider) for provider in PROVIDER_TEST_ORDER]
@@ -97,16 +92,17 @@ async def detect_provider(api_key: str) -> ProviderType:
 
     # Find first successful provider (maintaining priority order)
     for provider in PROVIDER_TEST_ORDER:
-        for result_provider, success in results:
+        for result_provider, success, _ in results:
             if result_provider == provider and success:
                 print(f"Detected provider: {provider}")
                 cache_provider(api_key, provider)
                 return provider
 
-    # Default to None (OpenAI) if all providers fail
-    print("No provider detected, defaulting to OpenAI")
-    cache_provider(api_key, None)
-    return None
+    # If all providers failed, raise an error with accepted base URLs
+    accepted_urls = "\n".join([f"  - {name}: {url}" for name, url in PROVIDER_BASE_URLS.items()])
+    error_msg = f"All providers failed. Accepted base URLs:\n{accepted_urls}"
+    print(f"No provider detected: {error_msg}")
+    raise ValueError(error_msg)
 
 
 @timeit

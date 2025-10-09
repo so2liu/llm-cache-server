@@ -62,7 +62,7 @@ async def process_chat_request(
     # Auto-detect provider if not specified
     if provider is None:
         api_key = authorization.split(" ")[1] if authorization else env_config.OPENAI_API_KEY
-        provider = await detect_provider(api_key)
+        provider = await detect_provider(api_key, chat_request.model)
 
     client = get_openai_client(authorization, provider)
 
