@@ -41,6 +41,17 @@ async def process_chat_request(
 ):
     body = await request.json()
 
+    # Special handling for GLM-4.6 model
+    if body.get("model") == "glm-4.6":
+        if "max_tokens" not in body or body["max_tokens"] is None:
+            body["max_tokens"] = 1
+            if env_config.LOG_MESSAGE:
+                print("GLM-4.6 model: Auto-filled max_tokens with 1")
+        if "stream" not in body or body["stream"] is None:
+            body["stream"] = True
+            if env_config.LOG_MESSAGE:
+                print("GLM-4.6 model: Auto-filled stream with True")
+
     if env_config.LOG_MESSAGE:
         print(json.dumps(body, indent=2, ensure_ascii=False))
         print("Verbose: Message contents")
