@@ -8,18 +8,18 @@ LLM Cache Proxy is a FastAPI-based application that serves as a caching layer fo
 # Run the container
 docker run -p 9999:9999 \
   -v $(pwd)/data:/app/data \
-  so2liu/llm-cache-proxy
+  ghcr.io/so2liu/llm-cache-server:latest
 ```
 
 OR
 
 ```bash
-# Run the container
+# Run the container with custom API key
 docker run -p 9999:9999 \
   -e OPENAI_API_KEY=your_api_key_here \
   -e OPENAI_BASE_URL=https://api.openai.com/v1 \
   -v $(pwd)/data:/app/data \
-  so2liu/llm-cache-proxy
+  ghcr.io/so2liu/llm-cache-server:latest
 ```
 
 The proxy is now available at http://localhost:9999
@@ -47,8 +47,8 @@ Use /chat/completions for uncached requests
 1. Clone the repository:
 
     ```
-    git clone https://github.com/so2liu/llm-cache-proxy.git
-    cd llm-cache-proxy
+    git clone https://github.com/so2liu/llm-cache-server.git
+    cd llm-cache-server
     ```
 
 2. Install the required packages:
@@ -79,10 +79,22 @@ You can set these in a `.env` file in the project root.
 
 ### Using Docker
 
+**Recommended: Use pre-built image from GitHub Container Registry**
+
+```bash
+docker run -p 9999:9999 \
+  -e OPENAI_API_KEY=your_api_key_here \
+  -e OPENAI_BASE_URL=https://api.openai.com/v1 \
+  -v $(pwd)/data:/app/data \
+  ghcr.io/so2liu/llm-cache-server:latest
+```
+
+**Or build locally:**
+
 1. Build the Docker image:
 
     ```
-    docker build -t llm-cache-proxy .
+    docker build -t llm-cache-server .
     ```
 
 2. Run the container with persistent storage:
@@ -92,7 +104,7 @@ You can set these in a `.env` file in the project root.
       -e OPENAI_API_KEY=your_api_key_here \
       -e OPENAI_BASE_URL=https://api.openai.com/v1 \
       -v $(pwd)/data:/app/data \
-      llm-cache-proxy
+      llm-cache-server
     ```
 
     This command mounts a `data` directory from your current working directory to the `/app/data` directory in the container, ensuring that the cache persists between container restarts.

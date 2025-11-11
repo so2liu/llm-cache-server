@@ -1,6 +1,6 @@
 from typing import Any, Optional, Union
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ChatCompletionRequest(BaseModel):
@@ -21,8 +21,10 @@ class ChatCompletionRequest(BaseModel):
 
 
 class ChatCompletionResponse(BaseModel):
+    model_config = ConfigDict(extra="allow")
+
     id: str
-    object: str
+    object: Optional[str] = "chat.completion"
     created: int
     model: str
     choices: list
