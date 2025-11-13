@@ -17,3 +17,8 @@ dependencies = [
     "uvicorn==0.29.0",
     "sentry-sdk[fastapi]>=2.0.0",
 ]
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.407",
+]

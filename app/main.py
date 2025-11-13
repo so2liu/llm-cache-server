@@ -12,7 +12,14 @@ from .database import init_db
 from .env_config import env_config
 from .models import ChatCompletionRequest, ChatCompletionResponse
 from .telemetry.sentry_settings import init_sentry
-from .utils import ProviderType, detect_provider, get_openai_client, get_request_hash, stream_response
+from .utils import (
+    ProviderType,
+    detect_provider,
+    get_openai_client,
+    get_request_hash,
+    stream_response,
+    transform_glm46_non_streaming_response,
+)
 
 # Initialize Sentry
 init_sentry()
@@ -44,13 +51,21 @@ async def process_chat_request(
     # Special handling for GLM-4.6 model
     if body.get("model") == "glm-4.6":
         if "max_tokens" not in body or body["max_tokens"] is None:
-            body["max_tokens"] = 1
+            body["max_tokens"] = int(1e5)  # 100000
             if env_config.LOG_MESSAGE:
-                print("GLM-4.6 model: Auto-filled max_tokens with 1")
+                print("GLM-4.6 model: Auto-filled max_tokens with 100000")
         if "stream" not in body or body["stream"] is None:
-            body["stream"] = True
+            body["stream"] = False
             if env_config.LOG_MESSAGE:
-                print("GLM-4.6 model: Auto-filled stream with True")
+                print("GLM-4.6 model: Auto-filled stream with False")
+
+        # Disable thinking by default for GLM-4.6
+        if "extra_body" not in body:
+            body["extra_body"] = {}
+        if "thinking" not in body.get("extra_body", {}):
+            body["extra_body"]["thinking"] = {"type": "disabled"}
+            if env_config.LOG_MESSAGE:
+                print("GLM-4.6 model: Disabled thinking mode")
 
     if env_config.LOG_MESSAGE:
         print(json.dumps(body, indent=2, ensure_ascii=False))
@@ -77,6 +92,7 @@ async def process_chat_request(
 
     client = get_openai_client(authorization, provider)
 
+    request_hash = ""
     if use_cache:
         request_hash = get_request_hash(body)
         cached_response = check_cache(request_hash, simulate)
@@ -90,7 +106,7 @@ async def process_chat_request(
             client,
             chat_request,
             use_cache,
-            request_hash if use_cache else "",
+            request_hash,
             simulate,
         )
         return StreamingResponse(
@@ -100,14 +116,20 @@ async def process_chat_request(
     else:
         response = await client.chat.completions.create(**chat_request.model_dump(exclude_none=True))
 
+        response_dict = response.to_dict()
+
+        # Transform GLM-4.6 non-streaming response
+        if body.get("model") == "glm-4.6":
+            response_dict = transform_glm46_non_streaming_response(response_dict)
+
         if use_cache:
             print("add to cache")
-            cache_response(request_hash, json.dumps(body), response.to_json(), False)
+            cache_response(request_hash, json.dumps(body), json.dumps(response_dict), False)
 
         try:
-            return ChatCompletionResponse(**response.to_dict())
+            return ChatCompletionResponse(**response_dict)
         except Exception:
-            return {"error": response.to_dict()}
+            return {"error": response_dict}
 
 
 @app.post("/cache/chat/completions")
