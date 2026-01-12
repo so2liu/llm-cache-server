@@ -10,9 +10,6 @@ WORKDIR /app
 # Copy dependency files first for better caching
 COPY pyproject.toml uv.lock ./
 
-# Create venv with Python copies (not symlinks) for portability
-ENV UV_LINK_MODE=copy
-
 # Install dependencies using uv (frozen lockfile for reproducibility)
 RUN uv sync --frozen --no-dev --no-install-project
 
@@ -25,16 +22,19 @@ RUN uv sync --frozen --no-dev
 # Final stage - minimal runtime image
 FROM python:3.12-slim
 
+# Copy uv binary
+COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
+
 # Set the working directory
 WORKDIR /app
 
 # Copy the virtual environment and application from builder
 COPY --from=builder /app /app
 
-# Create a non-root user and set ownership
+# Create a non-root user and set up data directory
 RUN adduser --disabled-password --gecos '' appuser && \
     mkdir -p /app/data && \
-    chown -R appuser:appuser /app
+    chown -R appuser:appuser /app/data
 
 # Switch to non-root user
 USER appuser
@@ -50,5 +50,5 @@ EXPOSE 9999
 
 WORKDIR /app/app
 
-# Run the application directly with Python
-ENTRYPOINT ["python", "-m", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]
+# Run the application using uv
+ENTRYPOINT ["uv", "run", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]
