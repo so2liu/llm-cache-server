@@ -31,10 +31,10 @@ WORKDIR /app
 # Copy the virtual environment and application from builder
 COPY --from=builder /app /app
 
-# Create a non-root user and set up data directory
+# Create a non-root user and set ownership
 RUN adduser --disabled-password --gecos '' appuser && \
     mkdir -p /app/data && \
-    chown -R appuser:appuser /app/data
+    chown -R appuser:appuser /app
 
 # Switch to non-root user
 USER appuser
