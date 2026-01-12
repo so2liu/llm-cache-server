@@ -1,0 +1,21 @@
+services:
+  llm-cache-proxy:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: llm-cache-proxy-dev
+    ports:
+      - "9999:9999"
+    volumes:
+      - ./data:/app/data
+    environment:
+      - OPENAI_API_KEY=${OPENAI_API_KEY:-}
+      - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      - SENTRY_DSN=${SENTRY_DSN:-}
+      - LOG_MESSAGE=${LOG_MESSAGE:-true}
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:9999/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 10s

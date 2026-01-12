@@ -143,6 +143,11 @@ async def chat_completion(
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/health")
+async def health_check():
+    return {"status": "ok"}
+
+
 @app.get("/cache/models")
 @app.get("/models")
 @app.get("/{provider}/cache/models")
