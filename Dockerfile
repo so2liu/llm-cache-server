@@ -22,14 +22,12 @@ RUN uv sync --frozen --no-dev
 # Final stage - minimal runtime image
 FROM python:3.12-slim
 
-# Copy uv binary
-COPY --from=builder /usr/local/bin/uv /usr/local/bin/uv
-
 # Set the working directory
 WORKDIR /app
 
-# Copy the virtual environment and application from builder
-COPY --from=builder /app /app
+# Copy only the virtual environment and app from builder
+COPY --from=builder /app/.venv /app/.venv
+COPY --from=builder /app/app /app/app
 
 # Create data directory
 RUN mkdir -p /app/data
@@ -45,5 +43,5 @@ EXPOSE 9999
 
 WORKDIR /app/app
 
-# Run the application using uv
-ENTRYPOINT ["uv", "run", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]
+# Run the application directly
+ENTRYPOINT ["python", "-m", "fastapi", "run", "main.py", "--host", "0.0.0.0", "--port", "9999"]
