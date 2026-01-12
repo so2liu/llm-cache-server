@@ -7,7 +7,7 @@ services:
     ports:
       - "9999:9999"
     volumes:
-      - ./data:/app/data
+      - llm-cache-data-dev:/app/data
     environment:
       - OPENAI_API_KEY=${OPENAI_API_KEY:-}
       - OPENAI_BASE_URL=${OPENAI_BASE_URL:-https://api.openai.com/v1}
@@ -19,3 +19,6 @@ services:
       timeout: 10s
       retries: 3
       start_period: 10s
+
+volumes:
+  llm-cache-data-dev:
